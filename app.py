@@ -4,8 +4,14 @@ from firebase_config import firebase_config
 from dotenv import load_dotenv
 import json
 import os
+
+# --- Load Environment Variables ---
 load_dotenv()
 firebase_key = os.getenv("FIREBASE_API_KEY")
+
+if not firebase_key:
+    st.error("Missing FIREBASE_API_KEY. Please check your .env file or Render environment settings.")
+    st.stop()
 
 # --- Firebase Setup ---
 @st.cache_resource
@@ -31,7 +37,7 @@ def add_match(token, p1, p2, match_type):
         "first_player": p1,
         "second_player": p2,
         "match_type": match_type,
-        "created_by": st.session_state["email"]
+        "created_by": st.session_state.get("email", "unknown")
     })
 
 def delete_match(token):
@@ -121,6 +127,8 @@ if "email" in st.session_state:
             if submit_match:
                 if token and p1 and p2:
                     add_match(token, p1, p2, match_type)
+                    st.success("Match added successfully!")
+                    st.rerun()
                 else:
                     st.warning("Please fill all fields.")
 
@@ -130,6 +138,7 @@ if "email" in st.session_state:
         selected_token = st.selectbox("Select Token to Delete", match_tokens)
         if st.button("Delete Match"):
             delete_match(selected_token)
+            st.success("Match deleted.")
             st.rerun()
 
     # --- Refresh Button for All Users ---
