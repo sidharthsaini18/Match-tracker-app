@@ -1,7 +1,11 @@
 import streamlit as st
 import pyrebase
 from firebase_config import firebase_config
+from dotenv import load_dotenv
 import json
+import os
+load_dotenv()
+firebase_key = os.getenv("FIREBASE_API_KEY")
 
 # --- Firebase Setup ---
 @st.cache_resource
