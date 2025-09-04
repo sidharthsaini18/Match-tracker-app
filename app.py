@@ -1,67 +1,47 @@
 import streamlit as st
 import pyrebase
-import firebase_admin
-from firebase_admin import credentials, firestore
 from firebase_config import firebase_config
-import os
+import json
 
 # --- Firebase Setup ---
 @st.cache_resource
 def init_firebase():
     firebase = pyrebase.initialize_app(firebase_config)
     auth = firebase.auth()
-
-    if not firebase_admin._apps:
-        cred_path = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
-        cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred)
-
-    db = firestore.client()
+    db = firebase.database()
     return auth, db
 
 auth, db = init_firebase()
 
 # --- Helper Functions ---
+def sanitize_email(email):
+    return email.replace(".", "_").replace("@", "_at_")
+
 def get_user_role(email):
-    try:
-        doc = db.collection("users").document(email).get()
-        if doc.exists:
-            return doc.to_dict().get("role", "viewer")
-    except Exception as e:
-        st.error(f"Error fetching role: {e}")
-    return "viewer"
+    safe_email = sanitize_email(email)
+    role_data = db.child("users").child(safe_email).get().val()
+    return role_data.get("role", "viewer") if role_data else "viewer"
 
 def add_match(token, p1, p2, match_type):
-    try:
-        db.collection("matches").document(token).set({
-            "first_player": p1,
-            "second_player": p2,
-            "match_type": match_type,
-            "created_by": st.session_state["email"]
-        })
-        st.success(f"Match {token} added!")
-    except Exception as e:
-        st.error(f"Add match failed: {e}")
+    db.child("matches").child(token).set({
+        "first_player": p1,
+        "second_player": p2,
+        "match_type": match_type,
+        "created_by": st.session_state["email"]
+    })
 
 def delete_match(token):
-    try:
-        db.collection("matches").document(token).delete()
-        st.success(f"Match {token} deleted!")
-    except Exception as e:
-        st.error(f"Delete match failed: {e}")
+    db.child("matches").child(token).remove()
 
 def get_all_matches():
-    try:
-        docs = db.collection("matches").stream()
-        return [doc.to_dict() | {"token": doc.id} for doc in docs]
-    except Exception as e:
-        st.error(f"Fetch matches failed: {e}")
-        return []
+    data = db.child("matches").get().val()
+    if data:
+        return [{"token": k, **v} for k, v in data.items()]
+    return []
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="MatchTracker Dashboard", page_icon="👊")
+st.set_page_config(page_title="MatchTracker", page_icon="🎯")
 
-# --- Header ---
 st.markdown("<h1 style='text-align: center; color: green;'>🕉️ BABA BOTAL SHAH JI MAHARAJ 🕉️</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -79,10 +59,16 @@ if menu == "Sign Up":
             with st.spinner("Creating account..."):
                 try:
                     auth.create_user_with_email_and_password(email, password)
-                    db.collection("users").document(email).set({"role": role})
+                    safe_email = sanitize_email(email)
+                    db.child("users").child(safe_email).set({"role": role})
                     st.success("Account created successfully!")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    try:
+                        error_json = e.args[1]
+                        error = json.loads(error_json)['error']['message']
+                        st.error(f"Signup failed: {error}")
+                    except:
+                        st.error(f"Error: {e}")
 
 # --- Login ---
 elif menu == "Login":
@@ -98,8 +84,14 @@ elif menu == "Login":
                     st.session_state["email"] = email
                     st.session_state["role"] = get_user_role(email)
                     st.success(f"Welcome {email}!")
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Login failed: {e}")
+                    try:
+                        error_json = e.args[1]
+                        error = json.loads(error_json)['error']['message']
+                        st.error(f"Login failed: {error}")
+                    except:
+                        st.error(f"Login failed: {e}")
 
 # --- Dashboard ---
 if "email" in st.session_state:
@@ -110,7 +102,7 @@ if "email" in st.session_state:
         st.success("Logged out successfully.")
         st.rerun()
 
-    st.markdown("##  MatchTracker")
+    st.markdown("## MatchTracker")
 
     # --- Admin Controls ---
     if st.session_state["role"] == "admin":
