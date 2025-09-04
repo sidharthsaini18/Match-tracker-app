@@ -1,11 +1,14 @@
-# firebase_config.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 firebase_config = {
-    "apiKey": "AIzaSyCSWwXn7dJOsfubrfql3YSo1luQ7gIv0js",
-    "authDomain": "match-tracker-e0384.firebaseapp.com",
-    "projectId": "match-tracker-e0384",
-    "storageBucket": "match-tracker-e0384.firebasestorage.app",
-    "messagingSenderId": "150690004129",
-    "appId": "1:150690004129:web:93991e9d64fe12030d04e0",
-    "databaseURL": ""
+    "apiKey": os.getenv("FIREBASE_API_KEY"),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+    "appId": os.getenv("FIREBASE_APP_ID"),
+    "databaseURL": os.getenv("FIREBASE_DATABASE_URL")
 }
